@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Práctica de Gramáticas · Análisis Sintáctico</title>
+<style>
+:root{--bg:#f3efe6;--card:#fffdf8;--tx:#1d2a2a;--mu:#6a7774;--pr:#0f6b63;--prs:#d8ece8;--ok:#2b7a3d;--oks:#dcf0df;--ko:#b3392f;--kos:#f7dedb;--bd:#ddd6c6}
+@media(prefers-color-scheme:dark){:root{--bg:#10191a;--card:#172324;--tx:#e6efec;--mu:#92a5a1;--pr:#5fd0c3;--prs:#1d3836;--ok:#6fd186;--oks:#1b3a24;--ko:#ff8a7e;--kos:#3e2220;--bd:#2a3c3d}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:17px/1.6 Georgia,'Times New Roman',serif}
+main{max-width:760px;margin:0 auto;padding:28px 18px 60px}
+h1{font-size:2rem;line-height:1.15;margin:0 0 6px;letter-spacing:-.02em}
+.sub{color:var(--mu);margin:0 0 22px;font-family:system-ui,sans-serif;font-size:.95rem}
+.bar{height:8px;background:var(--bd);border-radius:8px;overflow:hidden}
+.bar i{display:block;height:100%;width:0;background:var(--pr);transition:width .3s}
+.info{display:flex;justify-content:space-between;font:600 .9rem system-ui,sans-serif;color:var(--mu);margin:8px 0 14px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:24px}
+.q{font-size:1.2rem;margin:0 0 18px;white-space:pre-wrap}
+.opt{display:block;width:100%;text-align:left;font:inherit;font-size:1rem;color:var(--tx);background:transparent;border:1.5px solid var(--bd);border-radius:10px;padding:12px 14px;margin:0 0 10px;cursor:pointer;white-space:pre-wrap}
+.opt:hover:not(:disabled){border-color:var(--pr);background:var(--prs)}
+.opt:focus-visible,.btn:focus-visible,.dot:focus-visible{outline:3px solid var(--pr);outline-offset:2px}
+.opt.ok{border-color:var(--ok);background:var(--oks)}
+.opt.ko{border-color:var(--ko);background:var(--kos)}
+.opt:disabled{cursor:default}
+.ex{white-space:pre-wrap;margin-top:14px;padding:12px 14px;border-left:4px solid var(--pr);background:var(--prs);border-radius:0 8px 8px 0;font-size:.95rem}
+.row{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}
+.btn{font:600 1rem system-ui,sans-serif;border:0;border-radius:10px;padding:11px 20px;background:var(--pr);color:var(--bg);cursor:pointer}
+.btn.g{background:transparent;color:var(--pr);border:1.5px solid var(--pr)}
+.nav{display:grid;grid-template-columns:repeat(10,1fr);gap:6px;margin-top:22px}
+.dot{font:600 .8rem system-ui,sans-serif;padding:6px 0;border:1px solid var(--bd);border-radius:6px;background:var(--card);color:var(--mu);cursor:pointer}
+.dot.cur{border-color:var(--pr);color:var(--pr)}
+.dot.ok{background:var(--oks);color:var(--ok)}
+.dot.ko{background:var(--kos);color:var(--ko)}
+.big{font-size:3rem;font-weight:700;margin:6px 0}
+.rev{margin:12px 0;padding:12px;border:1px solid var(--bd);border-radius:10px;font-size:.95rem;white-space:pre-wrap}
+.hide{display:none}
+@media(max-width:520px){.nav{grid-template-columns:repeat(5,1fr)}h1{font-size:1.6rem}}
+</style>
+</head>
+<body>
+<main>
+<h1>Gramáticas: práctica de estudio</h1>
+<p class="sub">50 preguntas · notación vista en clase: G = (V, T, S, P), ⇒, ⇒*, λ</p>
+<div id="quiz">
+  <div class="bar"><i id="pb"></i></div>
+  <div class="info"><span id="cnt"></span><span id="sc"></span></div>
+  <div class="card">
+    <p class="q" id="q"></p>
+    <div id="opts"></div>
+    <div class="ex hide" id="ex"></div>
+    <div class="row"><button class="btn g" id="prev">Anterior</button><button class="btn" id="next">Siguiente</button></div>
+  </div>
+  <div class="nav" id="nav"></div>
+</div>
+<div id="res" class="card hide"></div>
+</main>
+<script>
+const G1="G = ({S}, {a,b}, S, P)\n1. S → aSb\n2. S → λ";
+const G2="G = ({S,A}, {a,b}, S, P)\n1. S → Ab\n2. A → aAb\n3. A → λ";
+const G3="G = ({S,A}, {a,b}, S, P)\n1. S → aA\n2. A → bS\n3. A → λ";
+const G4="V = {S,A,B}, T = {a,b}\n1. S → aaB\n2. A → bBb\n3. A → λ\n4. B → Aa";
+// [pregunta, explicación, correcta, ...incorrectas]
+const Q=[
+["¿Qué es formalmente una gramática?","Es una tupla de cuatro componentes: G = (V, T, S, P).","Una tupla G = (V, T, S, P)","Una tupla G = (Q, T, S, P)","Un conjunto de tres elementos (V, T, S)","Una expresión regular"],
+["En G = (V, T, S, P), ¿qué es V?","V es el conjunto finito de símbolos no terminales o variables sintácticas.","El conjunto finito de no terminales","El conjunto de terminales","El conjunto de producciones","El símbolo de inicio"],
+["En G = (V, T, S, P), ¿qué es T?","T es el conjunto finito de terminales, el alfabeto de la gramática.","El alfabeto de terminales","Las variables sintácticas","El símbolo de inicio","Las producciones"],
+["¿Qué condición cumple el símbolo de inicio S?","S es la variable de inicio y pertenece a V (S ∈ V).","S ∈ V","S ∈ T","S ∈ P","S = λ"],
+["¿Qué significa V ∩ T = ∅?","V y T son conjuntos disyuntos: ningún símbolo es a la vez terminal y no terminal.","V y T son disyuntos","V y T son iguales","V está contenido en T","V y T están vacíos"],
+["¿Pueden V y T ser conjuntos vacíos?","No. Además de ser disyuntos, ninguno de los dos puede ser vacío.","No, no pueden ser vacíos","Sí, ambos","Solo V","Solo T"],
+["¿Qué es P en una gramática?","P es el conjunto de producciones, el núcleo de la gramática.","El conjunto de producciones","El conjunto de cadenas generadas","El alfabeto","El símbolo inicial"],
+["¿Qué forma tiene una producción?","Tiene la forma x → y, con x ∈ (V ∪ T)+ e y ∈ (V ∪ T)*.","x → y, con x ∈ (V ∪ T)+ e y ∈ (V ∪ T)*","x → y, con x ∈ T* e y ∈ V+","x → y, con x ∈ V* e y ∈ T+","x ⇒ y, con x, y ∈ T"],
+["El lado derecho y de una producción x → y puede ser:","y ∈ (V ∪ T)*, así que puede ser la cadena vacía λ.","La cadena vacía λ","Solo una variable","Solo terminales, nunca vacío","Siempre un único símbolo"],
+["Si w = uxv y existe la producción x → y, ¿qué cadena z se obtiene?","Se reemplaza x por y en w: z = uyv.","z = uyv","z = uxv","z = yuv","z = uvy"],
+["¿Cómo se lee w ⇒ z?","Significa que w deriva z en un paso, aplicando una producción.","w deriva z","z deriva w","w es igual a z","w produce un lenguaje"],
+["Si w₁ ⇒ w₂ ⇒ ⋯ ⇒ wₙ, ¿cómo se denota?","Se dice que w₁ deriva wₙ y se escribe w₁ ⇒* wₙ.","w₁ ⇒* wₙ","wₙ ⇒* w₁","w₁ → wₙ","w₁ ∈ wₙ"],
+["¿Cuál es la definición del lenguaje generado por G?","L(G) contiene las cadenas de terminales derivables desde S (S ⇒* w). La diapositiva 4 la escribe como w ⇒* S, pero los ejemplos del Word usan S ⇒* w.","L(G) = {w ∈ T* | S ⇒* w}","L(G) = {w ∈ V* | S ⇒* w}","L(G) = {w ∈ T* | w ∈ P}","L(G) = {S | S ⇒* w}"],
+["Las cadenas de L(G) contienen:","Todas las cadenas w del lenguaje tienen solo símbolos terminales (cero o más).","Solo símbolos terminales","Terminales y variables","Solo variables","Solo producciones"],
+["¿Desde dónde se derivan las cadenas de L(G)?","Todas se derivan a partir del símbolo inicial S aplicando producciones.","Desde el símbolo inicial S","Desde cualquier variable","Desde cualquier terminal","Desde λ"],
+["La gramática G = ({S}, {a,b}, S, P) con producciones S → aA y A → b está mal definida porque:","A aparece en las producciones pero no está en V; debería ser V = {S, A}.","A no pertenece a V","a y b no son terminales","S no puede ser inicial","P debe estar vacío"],
+["En G = ({S,A}, {a,b}, S, P), ¿cuál es un no terminal?","V = {S, A}: son no terminales. a y b son terminales.","A","a","b","λ"],
+["Una gramática es regular lineal por izquierda si todas sus producciones son de la forma:","A → Bx o A → x, con A y B variables y x una cadena de solo terminales.","A → Bx o A → x","A → xB o A → x","A → xBy","A → BC"],
+["Una gramática es regular lineal por derecha si todas sus producciones son de la forma:","A → xB o A → x, con A y B variables y x una cadena de solo terminales.","A → xB o A → x","A → Bx o A → x","A → BxC","A → BC o A → x"],
+["La gramática con S → aS y S → b es:","Todas las producciones son de la forma xB o x: lineal por derecha, es decir regular.","Regular, lineal por derecha","Regular, lineal por izquierda","Libre de contexto no lineal","No es una gramática"],
+["La gramática con S → Sa y S → b es:","Las producciones son de la forma Bx o x: lineal por izquierda, es decir regular.","Regular, lineal por izquierda","Regular, lineal por derecha","Libre de contexto no lineal","Ninguna de las anteriores"],
+["La gramática con S → aSb y S → λ es:","La variable S queda entre los terminales a y b, así que es no lineal: libre de contexto.","Libre de contexto (no lineal)","Regular lineal por derecha","Regular lineal por izquierda","No tiene tipo"],
+["Una gramática es no lineal cuando:","Si al menos una producción tiene dos o más variables, o una variable entre terminales, es no lineal.","Una producción tiene dos o más variables, o una variable entre terminales","Todas sus producciones terminan en terminal","Tiene más de una producción","Usa λ en alguna producción"],
+["La producción S → AB hace que la gramática sea:","Contiene dos variables en el lado derecho, por lo que es no lineal.","No lineal (libre de contexto)","Lineal por derecha","Lineal por izquierda","Regular"],
+["Una gramática tiene S → aA, A → Bb y B → a. ¿Es regular?","S → aA es lineal por derecha, pero A → Bb es lineal por izquierda. Al mezclar ambas, no es regular.","No, porque mezcla producciones lineales por derecha y por izquierda","Sí, es lineal por derecha","Sí, es lineal por izquierda","Sí, siempre que termine en terminal"],
+["Las gramáticas regulares generan:","Las gramáticas regulares generan lenguajes regulares.","Lenguajes regulares","Lenguajes libres de contexto no regulares","Ningún lenguaje","Solo λ"],
+["Las gramáticas libres de contexto se utilizan para definir:","Definen lenguajes más complejos (no regulares), como los lenguajes de programación.","Lenguajes más complejos, no regulares","Solo lenguajes finitos","Solo expresiones regulares","Solo el lenguaje vacío"],
+["Para "+G1.split("\n")[0]+" ¿qué cadena genera S ⇒₂ λ?\n\n"+G1,"Aplicando la producción 2 directamente se obtiene la cadena mínima λ.","λ","a","ab","S"],
+["Con la gramática G₁\n\n"+G1+"\n\n¿Qué cadena se obtiene con S ⇒₁ aSb ⇒₂ aλb?","aλb = ab.","ab","aabb","aab","λ"],
+["Con G₁, ¿qué producciones se aplican para derivar aabb?","S ⇒₁ aSb ⇒₁ aaSbb ⇒₂ aabb.","1, 1, 2","1, 2, 2","2, 1, 1","1, 2, 1"],
+["Con G₁, ¿aaabbb ∈ L(G)?","S ⇒₁ aSb ⇒₁ aaSbb ⇒₁ aaaSbbb ⇒₂ aaabbb.","Sí","No","Solo con la producción 2","No se puede saber"],
+["Con G₁, ¿aab ∈ L(G)?","G₁ genera igual número de a y de b; aab tiene dos a y una b.","No","Sí","Sí, aplicando solo la 2","Sí, aplicando solo la 1"],
+["Con G₁, ¿abab ∈ L(G)?","Todas las a van antes que las b; abab no tiene esa forma.","No","Sí","Sí, aplicando 1 dos veces","Sí, aplicando 2 dos veces"],
+["El lenguaje generado por G₁ es:","Cada aplicación de la 1 añade una a a la izquierda y una b a la derecha.","L(G) = {aⁿbⁿ | n ≥ 0}","L(G) = {aⁿbⁿ⁺¹ | n ≥ 0}","L(G) = {(ab)ⁿ | n ≥ 0}","L(G) = {aⁿbᵐ | n, m ≥ 0}"],
+["El lenguaje {aⁿbⁿ | n ≥ 0} es:","Es un lenguaje no regular: no tiene expresión regular asociada.","No regular","Regular","Finito","Vacío"],
+["Con la gramática G₂\n\n"+G2+"\n\n¿cuál es la cadena mínima?","S ⇒₁ Ab ⇒₃ λb = b.","b","λ","ab","abb"],
+["Con G₂, ¿qué cadena genera S ⇒₁ Ab ⇒₂ aAbb ⇒₃ aλbb?","aλbb = abb.","abb","aabb","ab","aabbb"],
+["El lenguaje generado por G₂ es:","Hay una b extra que aporta la producción 1: aⁿbⁿ⁺¹.","L(G) = {aⁿbⁿ⁺¹ | n ≥ 0}","L(G) = {aⁿbⁿ | n ≥ 0}","L(G) = {aⁿ⁺¹bⁿ | n ≥ 0}","L(G) = {aⁿb | n ≥ 0}"],
+["Con G₂, ¿aabb ∈ L(G)?","Con 2 a se necesitan 3 b (aⁿbⁿ⁺¹); aabb solo tiene 2.","No","Sí","Sí, con n = 1","Sí, con n = 2"],
+["Con G₂, ¿aabbb ∈ L(G)?","Es aⁿbⁿ⁺¹ con n = 2: S ⇒₁ Ab ⇒₂ aAbb ⇒₂ aaAbbb ⇒₃ aabbb.","Sí","No","Solo con n = 1","Solo con n = 3"],
+["Con la gramática G₃\n\n"+G3+"\n\n¿cuál es la cadena mínima?","S ⇒₁ aA ⇒₃ aλ = a.","a","λ","ab","aba"],
+["Con G₃, la derivación S ⇒₁ aA ⇒₂ abS ⇒₁ abaA ⇒₃ abaλ genera:","abaλ = aba.","aba","abab","ababa","ab"],
+["El lenguaje generado por G₃ es:","Cada ciclo S → aA → abS añade ab; se cierra con una a final.","L(G) = {(ab)ⁿa | n ≥ 0}","L(G) = {(ab)ⁿ | n ≥ 0}","L(G) = {aⁿbⁿ | n ≥ 0}","L(G) = {a(ba)ⁿb | n ≥ 0}"],
+["Con G₃, ¿abab ∈ L(G)?","Toda cadena de G₃ termina en a; abab termina en b.","No","Sí","Sí, con n = 2","Sí, con n = 1"],
+["¿Qué tipo de gramática es G₃?","S → aA y A → bS son de la forma xB, y A → λ es de la forma x: lineal por derecha.","Regular, lineal por derecha","Regular, lineal por izquierda","Libre de contexto no lineal","No es una gramática"],
+["¿El lenguaje de G₃ es regular?","Es generado por una gramática regular; su expresión regular es (ab)*a.","Sí, expresión regular (ab)*a","No, igual que aⁿbⁿ","No, porque usa λ","No, porque tiene dos variables"],
+["Para la gramática\n\n"+G4+"\n\n¿cuál es el conjunto correcto de variables V?","Las producciones usan S, A y B.","V = {S, A, B}","V = {S}","V = {A, B}","V = {S, a, b}"],
+["Para la gramática anterior (S → aaB, A → bBb, A → λ, B → Aa), ¿qué tipo es?","A → bBb tiene la variable B entre terminales, y se mezclan formas lineales por derecha (1) y por izquierda (4).","Libre de contexto (no lineal)","Regular lineal por derecha","Regular lineal por izquierda","Regular"],
+["Para esa gramática, ¿cuál es la cadena mínima?","S ⇒₁ aaB ⇒₄ aaAa ⇒₃ aaλa = aaa.","aaa","aa","aaba","λ"],
+["¿Cuál es el lenguaje generado por esa gramática?","B ⇒* bⁿa(ba)ⁿ, y S → aaB: L(G) = {aabⁿa(ba)ⁿ | n ≥ 0}. Es no regular.","L(G) = {aabⁿa(ba)ⁿ | n ≥ 0}","L(G) = {aⁿbⁿ | n ≥ 0}","L(G) = {(aab)ⁿ | n ≥ 0}","L(G) = {aaaⁿ | n ≥ 0}"]
+];
+const G4f="G = ({S,A,B}, {a,b}, S, P)\n1. S → aaB\n2. A → bBb\n3. A → λ\n4. B → Aa";
+Q[27][0]="Con la gramática G₁, ¿qué cadena se obtiene con la derivación S ⇒₂ λ?";
+Q[46][0]="Sea la gramática con T = {a,b}, símbolo de inicio S y producciones:\n1. S → aaB\n2. A → bBb\n3. A → λ\n4. B → Aa\n\n¿Cuál es el conjunto correcto de variables V?";
+Q[47][0]="Sea la gramática:\n"+G4f+"\n\n¿Qué tipo de gramática es?";
+Q[48][0]="Sea la gramática:\n"+G4f+"\n\n¿Cuál es la cadena mínima que genera?";
+Q[49][0]="Sea la gramática:\n"+G4f+"\n\n¿Cuál es el lenguaje generado?";
+[["G₁",G1],["G₂",G2],["G₃",G3]].forEach(([n,g])=>Q.forEach(d=>{if(d[0].includes(n)&&!d[0].includes("G = ("))d[0]="Gramática "+n+":\n"+g+"\n\n"+d[0]}));
+const E=["Según la diapositiva 2, una gramática es una tupla de cuatro componentes: G = (V, T, S, P).\nV = no terminales, T = terminales, S = símbolo de inicio, P = producciones.\nTruco: cuenta los componentes (son 4, no 3) y recuerda que la primera letra es V, no Q (Q se usa para los estados de un autómata).", "V es el conjunto finito de no terminales o variables sintácticas (en los ejemplos: S, A, B).\nRecuerda: V de Variables. Los terminales (a, b) pertenecen a T y las producciones a P.", "T es el alfabeto de la gramática: los símbolos terminales, que son los que aparecen en las cadenas finales (a, b).\nTruco: T de Terminal.", "S es la variable de inicio y se escoge entre las variables: S ∈ V.\nToda derivación de una cadena de L(G) parte de S.", "∩ es la intersección. V ∩ T = ∅ significa que V y T no tienen elementos en común: ningún símbolo es variable y terminal a la vez.\nPor eso se dice que son conjuntos disyuntos.", "La diapositiva 2 dice que V y T son disyuntos y además no pueden ser vacíos.\nHace falta al menos una variable (S) y al menos un terminal para poder generar cadenas.", "P es el conjunto de producciones y es el núcleo de la gramática (diapositiva 3).\nCada producción dice cómo una cadena se transforma en otra, por ejemplo S → aSb.", "Diapositiva 3: x → y, con x ∈ (V ∪ T)+ (uno o más símbolos, generalmente una sola variable) e y ∈ (V ∪ T)* (cero o más símbolos).\nEl + exige al menos un símbolo a la izquierda; el * permite la cadena vacía a la derecha.", "Como y ∈ (V ∪ T)*, el * incluye cero símbolos: y puede ser la cadena vacía λ.\nEjemplo de clase: S → λ.", "Se tiene w = uxv y la producción x → y. Se reemplaza solo x por y; u y v quedan igual: z = uyv.\nEjemplo: w = aSb con S → λ, donde u = a, x = S, v = b ⇒ z = aλb = ab.", "⇒ (flecha doble) es un paso de derivación: se aplicó una producción.\nw ⇒ z se lee «w deriva z». No se confunde con →, que es la producción.", "⇒ es un solo paso; cuando hay uno o más pasos se usa ⇒* (con asterisco).\nPor eso w₁ ⇒ w₂ ⇒ ⋯ ⇒ wₙ se resume como w₁ ⇒* wₙ.", "Paso 1 – Lee la definición: L(G) = {w ∈ T* | S ⇒* w}. Es un conjunto de cadenas.\nPaso 2 – w ∈ T* significa que w tiene solo terminales (cero o más), ninguna variable.\nPaso 3 – S ⇒* w significa que w se obtiene desde el símbolo inicial en uno o más pasos de derivación.\nPaso 4 – Ejemplo con G₁: S ⇒₂ λ y S ⇒₁ aSb ⇒₂ ab, entonces λ y ab están en L(G).\nNota: la diapositiva 4 la escribe w ⇒* S, que parece un error; los ejemplos del Word usan S ⇒* w.", "Si una cadena todavía tiene variables, se puede seguir derivando y aún no pertenece a L(G).\nPor eso las cadenas de L(G) tienen solo terminales (cero o más).", "La derivación siempre arranca en el símbolo inicial S (diapositiva 4), aplicando producciones en uno o más pasos.\nSi no se puede llegar a la cadena desde S, no está en L(G).", "Paso 1 – Una gramática bien definida usa en sus producciones solo símbolos de V ∪ T.\nPaso 2 – Las producciones S → aA y A → b usan los símbolos S, A, a, b.\nPaso 3 – S y A son variables; a y b, terminales. Pero V = {S} no incluye A.\nPaso 4 – A no está ni en V ni en T, así que la gramática está mal definida. Se corrige con V = {S, A}.", "V = {S, A} lista las variables, así que A es un no terminal. a y b están en T (terminales), y λ es la cadena vacía, no un símbolo de V ni de T.", "Diapositiva 5, lineal por izquierda: A → Bx o A → x, con x solo terminales.\nLa variable B queda a la izquierda del terminal x. Mnemotecnia: la variable está a la izquierda.", "Diapositiva 5, lineal por derecha: A → xB o A → x, con x solo terminales.\nLa variable B queda al final, a la derecha de los terminales x.", "Paso 1: S → aS tiene la forma xB (x = a, B = S); la variable está a la derecha.\nPaso 2: S → b tiene la forma x (x = b).\nTodas son xB o x ⇒ lineal por derecha ⇒ regular.", "Paso 1: S → Sa tiene la forma Bx (la variable S está a la izquierda del terminal a).\nPaso 2: S → b tiene la forma x.\nTodas son Bx o x ⇒ lineal por izquierda ⇒ regular.", "Paso 1 – Mira S → aSb: de izquierda a derecha tiene a (terminal), S (variable), b (terminal).\nPaso 2 – Lineal por derecha exigiría la variable al final (xB); lineal por izquierda, al inicio (Bx). Aquí está en el medio, así que no cumple ninguna.\nPaso 3 – Diapositiva 5: una variable entre símbolos terminales hace la gramática no lineal, o sea libre de contexto.\nPaso 4 – S → λ no cambia la conclusión: basta una producción no lineal.", "Diapositiva 5: la gramática es no lineal si al menos una producción tiene dos o más variables, o una variable entre símbolos terminales.\nLa respuesta correcta debe incluir esas dos condiciones.", "En S → AB hay dos variables en el lado derecho (A y B).\nUna sola producción con dos o más variables basta para que la gramática sea no lineal.", "Paso 1 – S → aA: terminal seguido de variable, forma xB (lineal por derecha).\nPaso 2 – A → Bb: variable seguida de terminal, forma Bx (lineal por izquierda).\nPaso 3 – B → a: forma x, válida en ambos tipos.\nPaso 4 – La diapositiva 5 define regular como todas las producciones de una misma forma: o todas lineales por izquierda, o todas lineales por derecha. Aquí hay de las dos, así que no es regular según la definición de clase.", "Diapositiva 5: las gramáticas regulares generan lenguajes regulares (y son lineales).", "Diapositiva 5: las gramáticas libres de contexto definen lenguajes más complejos (no regulares), como los lenguajes de programación.", "Para obtener la cadena mínima se aplica la producción más corta posible.\nS ⇒₂ λ: de S se pasa directamente a λ, la cadena vacía.\nλ ∈ L(G) porque solo tiene terminales (cero).", "Se aplica la producción 1 y luego la 2:\nS ⇒₁ aSb ⇒₂ aλb = ab.\nEs el mismo ejemplo del Word.", "Paso 1 – Cuenta las a y las b de aabb: son 2 y 2, así que se necesita n = 2.\nPaso 2 – Cada aplicación de la 1 agrega una a y una b; hay que aplicarla 2 veces.\nPaso 3 – Se cierra con la 2 (S → λ):\nS ⇒₁ aSb ⇒₁ aaSbb ⇒₂ aaλbb = aabb.\nPaso 4 – Orden de producciones: 1, 1, 2.", "Hay 3 a y 3 b, así que se aplica la 1 tres veces y luego la 2:\nS ⇒₁ aSb ⇒₁ aaSbb ⇒₁ aaaSbbb ⇒₂ aaabbb ∈ L(G).\nEs el último ejemplo del Word.", "G₁ genera aⁿbⁿ: la misma cantidad de a que de b.\nEn aab hay 2 a y 1 b. Ninguna derivación lo produce, entonces aab ∉ L(G).", "G₁ genera todas las a primero y todas las b después (aⁿbⁿ).\nEn abab las a y las b están alternadas, entonces abab ∉ L(G).", "Paso 1 – S → aSb (1) agrega una a a la izquierda y una b a la derecha, y deja S en el centro. S → λ (2) cierra.\nPaso 2 – Usando la 1 n veces y luego la 2: S ⇒* aⁿSbⁿ ⇒₂ aⁿbⁿ.\nPaso 3 – Ejemplos: n = 0: λ; n = 1: ab; n = 2: aabb; n = 3: aaabbb.\nPaso 4 – Siempre hay las mismas a que b, con todas las a primero.\nL(G) = {aⁿbⁿ | n ≥ 0}.", "Paso 1 – Las cadenas λ, ab, aabb, aaabbb… necesitan la misma cantidad de a y de b.\nPaso 2 – Para verificarlo hay que «contar» las a y recordar cuántas fueron. Una gramática regular solo puede repetir bloques fijos, no comparar cantidades.\nPaso 3 – Por eso no existe una expresión regular asociada: es un lenguaje no regular.\nPaso 4 – Se necesita una gramática libre de contexto, como G₁ con S → aSb (S entre terminales, no lineal).", "Se aplica la producción más corta: S ⇒₁ Ab ⇒₃ λb = b.\nLa cadena mínima es b (caso n = 0).", "Paso 1 – S solo tiene la producción 1: S ⇒₁ Ab.\nPaso 2 – A tiene dos opciones: aAb (2) o λ (3).\nPaso 3 – Aplica la 2 una vez: Ab ⇒₂ aAbb.\nPaso 4 – Cierra con la 3: aAbb ⇒₃ aλbb = abb. Solo quedan terminales, entonces abb ∈ L(G) (n = 1).", "Paso 1 – S ⇒₁ Ab: la producción 1 siempre deja una b al final.\nPaso 2 – Desde A, cada A → aAb (2) agrega una a a la izquierda y una b a la derecha; A → λ (3) cierra.\nPaso 3 – Con n usos de la 2: A ⇒* aⁿAbⁿ ⇒₃ aⁿbⁿ.\nPaso 4 – Sumando la b de la producción 1 queda aⁿbⁿ·b = aⁿbⁿ⁺¹.\nPaso 5 – Ejemplos: n = 0: b; n = 1: abb; n = 2: aabbb.\nL(G) = {aⁿbⁿ⁺¹ | n ≥ 0}.", "Con 2 a, el lenguaje {aⁿbⁿ⁺¹} exige 3 b (n = 2 ⇒ aabbb).\naabb tiene solo 2 b, entonces aabb ∉ L(G).", "Paso 1 – aabbb tiene 2 a y 3 b: cumple aⁿbⁿ⁺¹ con n = 2.\nPaso 2 – S ⇒₁ Ab.\nPaso 3 – Usa la 2 dos veces: Ab ⇒₂ aAbb ⇒₂ aaAbbb.\nPaso 4 – Cierra con la 3: aaAbbb ⇒₃ aaλbbb = aabbb ∈ L(G).", "S ⇒₁ aA ⇒₃ aλ = a.\nLa cadena mínima es a: la derivación más corta termina con A → λ.", "Paso 1 – Sigue la derivación y fíjate qué producción se aplica en cada paso:\n• S ⇒₁ aA: S se reemplaza por aA.\n• aA ⇒₂ abS: A se reemplaza por bS.\n• abS ⇒₁ abaA: otra vez S se reemplaza por aA.\n• abaA ⇒₃ abaλ: A se reemplaza por λ.\nPaso 2 – abaλ = aba, porque λ no ocupa lugar. Solo hay terminales, entonces aba ∈ L(G).", "Paso 1 – Todo empieza con S ⇒₁ aA. Desde A hay dos caminos: cerrar con A → λ, o seguir con A → bS.\nPaso 2 – Cerrar de una vez: S ⇒₁ aA ⇒₃ a (n = 0).\nPaso 3 – Una vuelta antes de cerrar: S ⇒₁ aA ⇒₂ abS ⇒₁ abaA ⇒₃ aba (n = 1).\nPaso 4 – Dos vueltas: S ⇒₁ aA ⇒₂ abS ⇒₁ abaA ⇒₂ ababS ⇒₁ ababaA ⇒₃ ababa (n = 2).\nPaso 5 – Cada vuelta (producciones 1 y 2) agrega el bloque ab, y al final queda una a. L(G) = {(ab)ⁿa | n ≥ 0}.", "Toda cadena de G₃ termina en a, porque la última producción es A → λ justo después de aA.\nabab termina en b, entonces abab ∉ L(G).", "Paso 1 – Revisa cada producción:\n• 1. S → aA: terminal seguido de la variable A, forma xB.\n• 2. A → bS: terminal seguido de la variable S, forma xB.\n• 3. A → λ: solo terminales (λ), forma x.\nPaso 2 – Todas son xB o x, es decir, lineal por derecha (diapositiva 5).\nPaso 3 – Ninguna tiene dos variables ni una variable entre terminales, así que no es no lineal.\nConclusión: gramática regular, lineal por derecha.", "Paso 1 – G₃ es regular (lineal por derecha), y las gramáticas regulares generan lenguajes regulares (diapositiva 5).\nPaso 2 – Su lenguaje es {(ab)ⁿa | n ≥ 0}: repetir el bloque ab cero o más veces y terminar con a.\nPaso 3 – Eso se escribe como expresión regular: (ab)*a.\nPaso 4 – Diferencia con aⁿbⁿ: allí hay que igualar dos cantidades, y por eso no es regular. Aquí solo se repite un bloque fijo (ab), sin comparar nada.", "Paso 1 – Una variable es un símbolo que aparece a la izquierda de una producción o que se va reemplazando durante la derivación.\nPaso 2 – Recorre las producciones: S → aaB (S, B), A → bBb (A, B), A → λ (A), B → Aa (B, A). Las variables son S, A y B (mayúsculas); a y b son terminales.\nPaso 3 – V debe contener todas: V = {S, A, B}. El enunciado original traía solo {S}, que está incompleto; es el mismo tipo de error de la pregunta 16.", "Paso 1 – Clasifica producción por producción:\n• 1. S → aaB tiene la forma xB (x = aa): lineal por derecha.\n• 2. A → bBb tiene una variable (B) entre dos terminales (b y b): no lineal.\n• 3. A → λ tiene la forma x (x = λ): lineal.\n• 4. B → Aa tiene la forma Bx (variable seguida de terminal): lineal por izquierda.\nPaso 2 – Basta una producción no lineal (la 2) para que la gramática sea no lineal, es decir, libre de contexto (diapositiva 5).\nPaso 3 – Además mezcla formas lineales por derecha (1) y por izquierda (4), así que tampoco podría ser regular.\nRespuesta: libre de contexto (no lineal).", "Paso 1 – S solo tiene la producción 1: S ⇒₁ aaB.\nPaso 2 – B solo tiene la producción 4: aaB ⇒₄ aaAa.\nPaso 3 – A tiene dos opciones: bBb (2) o λ (3). Para la cadena más corta elige λ, que no agrega símbolos ni nuevas variables: aaAa ⇒₃ aaλa = aaa.\nPaso 4 – Solo quedan terminales, así que aaa ∈ L(G). Si hubieras elegido la 2, aparecería otra B y la cadena sería más larga (por ejemplo, aababa).", "Paso 1 – Mira las producciones de B y A. Solo B → Aa (4) usa A, y A tiene dos opciones: A → bBb (2) o A → λ (3). Entonces B puede terminar de dos formas:\n• Cerrar: B ⇒₄ Aa ⇒₃ λa = a.\n• Repetir: B ⇒₄ Aa ⇒₂ bBba (aparece otra B en el centro, lista para repetir).\nPaso 2 – Repite el ciclo y cierra con A → λ:\nB ⇒₄ Aa ⇒₂ bBba ⇒₄ bAaba ⇒₂ bbBbaba ⇒₄ bbAababa ⇒₃ bbababa.\nCada vuelta agrega una b a la izquierda y un bloque ba a la derecha. Con n vueltas queda B ⇒* bⁿa(ba)ⁿ.\nPaso 3 – S → aaB (1) es la única producción de S, así que toda cadena empieza con aa: L(G) = {aabⁿa(ba)ⁿ | n ≥ 0}.\nPaso 4 – Comprueba con ejemplos: n = 0: aaa; n = 1: aab·a·ba = aababa; n = 2: aabb·a·baba = aabbababa.\nPaso 5 – Es no regular: la cantidad de b iniciales debe ser igual a la cantidad de bloques ba finales, y eso exige «contar», algo que una gramática regular no puede hacer."];
+Object.assign(E,{"7": "Una producción tiene la forma x → y y define cómo una cadena se transforma en otra.\n• Lado izquierdo x ∈ (V ∪ T)+: el + significa «uno o más símbolos», así que no puede estar vacío. Generalmente es una sola variable.\n• Lado derecho y ∈ (V ∪ T)*: el * significa «cero o más símbolos», así que puede mezclar variables y terminales, o ser la cadena vacía λ.\nEjemplos del Word: S → aSb (terminal, variable, terminal) y S → λ (lado derecho vacío).", "9": "Paso 1: se tiene una cadena w = uxv, donde x coincide con el lado izquierdo de una producción x → y; u es lo que está antes de x y v lo que está después.\nPaso 2: se reemplaza únicamente x por y; u y v no cambian: z = uyv.\nPaso 3: entonces w ⇒ z (w deriva z).\nEjemplo: w = aSb con S → λ: u = a, x = S, v = b, y = λ ⇒ z = aλb = ab.", "17": "Una gramática regular es lineal: en cada producción la variable aparece en un extremo.\nLineal por izquierda: A → Bx o A → x, con A y B variables y x una cadena de solo terminales.\nLa variable B queda a la izquierda de los terminales x (Bx). Ejemplo: S → Sa.\nMnemotecnia: lineal por izquierda = la variable va a la izquierda.", "18": "Lineal por derecha: A → xB o A → x, con A y B variables y x una cadena de solo terminales.\nLa variable B queda a la derecha de los terminales x (xB). Ejemplo: S → aS.\nSi todas las producciones cumplen una de las dos formas, la gramática es regular y genera un lenguaje regular.", "22": "Diapositiva 5: las gramáticas libres de contexto son no lineales. Para reconocerlas, busca en las producciones alguno de estos dos casos:\n• Dos o más variables en el lado derecho. Ejemplo: S → AB.\n• Una variable entre símbolos terminales. Ejemplo: S → aSb.\nBasta con que una sola producción lo cumpla para que toda la gramática sea no lineal.", "27": "La cadena mínima sale de la derivación más corta que termina solo con terminales.\nPaso 1: S es el símbolo inicial.\nPaso 2: la producción 2 dice S → λ, así que S ⇒₂ λ.\nPaso 3: λ no tiene variables, solo terminales (cero), entonces λ ∈ L(G).\nEs la primera cadena de los ejemplos del Word.", "28": "Paso 1: parte de S y aplica la producción 1 (S → aSb): S ⇒₁ aSb.\nPaso 2: ahora hay una S entre a y b; aplica la producción 2 (S → λ): aSb ⇒₂ aλb.\nPaso 3: λ es la cadena vacía, no un símbolo, así que aλb = ab.\nResultado: S ⇒₁ aSb ⇒₂ aλb = ab ∈ L(G), con solo terminales (ejemplo del Word).", "30": "Paso 1: aaabbb tiene 3 a y 3 b, entonces n = 3: la producción 1 se aplica tres veces.\nPaso 2: S ⇒₁ aSb ⇒₁ aaSbb ⇒₁ aaaSbbb.\nPaso 3: se cierra con la 2: aaaSbbb ⇒₂ aaaλbbb = aaabbb.\nComo se llega desde S solo con terminales, aaabbb ∈ L(G) (último ejemplo del Word).\nRegla general: aⁿbⁿ necesita n veces la producción 1 y una vez la 2.", "38": "Paso 1: el lenguaje es {aⁿbⁿ⁺¹ | n ≥ 0}: siempre hay una b más que a.\nPaso 2: cuenta en aabb: 2 a y 2 b, es decir, la misma cantidad.\nPaso 3: con n = 2 se necesitarían 3 b (aabbb); con n = 1, abb. aabb no coincide con ninguna.\nTambién se ve en las derivaciones: la producción 1 siempre deja una b extra que aabb no tiene, entonces aabb ∉ L(G)."});
+const $=id=>document.getElementById(id);
+let order,cur,ans,opts;
+const shuf=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]]}return a};
+function start(list){
+  order=list||[...Q.keys()];cur=0;ans={};opts={};
+  order.forEach(k=>{const o=Q[k].slice(2);opts[k]=o.length>2?shuf(o):o});
+  $('quiz').classList.remove('hide');$('res').classList.add('hide');draw();
+}
+function score(){return order.filter(k=>ans[k]===Q[k][2]).length}
+function draw(){
+  const k=order[cur],d=Q[k],a=ans[k];
+  $('q').textContent=(cur+1)+". "+d[0];
+  $('cnt').textContent="Pregunta "+(cur+1)+" de "+order.length;
+  $('sc').textContent="Aciertos: "+score();
+  $('pb').style.width=Object.keys(ans).length/order.length*100+"%";
+  const box=$('opts');box.innerHTML="";
+  opts[k].forEach(t=>{
+    const b=document.createElement('button');b.className='opt';b.textContent=t;
+    if(a!==undefined){b.disabled=true;if(t===d[2])b.classList.add('ok');else if(t===a)b.classList.add('ko')}
+    b.onclick=()=>{ans[k]=t;draw()};box.appendChild(b);
+  });
+  const ex=$('ex');ex.classList.toggle('hide',a===undefined);
+  ex.textContent=a===undefined?"":(a===d[2]?"Correcto.":"Incorrecto.")+"\n\nCómo llegar a la respuesta:\n"+E[k];
+  $('prev').disabled=cur===0;
+  $('next').textContent=cur===order.length-1?"Ver resultado":"Siguiente";
+  const nav=$('nav');nav.innerHTML="";
+  order.forEach((kk,i)=>{
+    const b=document.createElement('button');b.textContent=i+1;
+    b.className='dot'+(i===cur?' cur':'')+(ans[kk]===undefined?'':ans[kk]===Q[kk][2]?' ok':' ko');
+    b.onclick=()=>{cur=i;draw()};nav.appendChild(b);
+  });
+}
+function finish(){
+  const n=order.length,s=score(),bad=order.filter(k=>ans[k]!==Q[k][2]);
+  $('quiz').classList.add('hide');const r=$('res');r.classList.remove('hide');
+  r.innerHTML="<h2>Resultado</h2><div class='big'>"+s+" / "+n+"</div><p>Nota equivalente: "+(s/n*5).toFixed(2)+" sobre 5,00"+(Object.keys(ans).length<n?" (te faltaron "+(n-Object.keys(ans).length)+" sin responder)":"")+"</p>";
+  if(bad.length){
+    r.innerHTML+="<h3>Para repasar</h3>";
+    bad.forEach(k=>{const d=document.createElement('div');d.className='rev';
+      d.textContent=d[0]=Q[k][0]+"\n\nRespuesta correcta: "+Q[k][2]+"\n\n"+E[k];r.appendChild(d)});
+  }
+  const row=document.createElement('div');row.className='row';
+  row.innerHTML="<button class='btn' id='again'>Reiniciar mezclado</button>"+(bad.length?"<button class='btn g' id='fail'>Repetir solo las falladas</button>":"");
+  r.appendChild(row);
+  $('again').onclick=()=>start(shuf([...Q.keys()]));
+  if(bad.length)$('fail').onclick=()=>start(shuf(bad));
+}
+$('prev').onclick=()=>{if(cur>0){cur--;draw()}};
+$('next').onclick=()=>{if(cur<order.length-1){cur++;draw()}else finish()};
+start();
+</script>
+</body>
+</html>
